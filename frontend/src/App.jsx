@@ -334,8 +334,8 @@ function App() {
                   </span>
                 )}
               </div>
-              <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div className="file-header-stats">
+                <div>
                   {files.length === 1 ? (files[0].relativePath || files[0].name) : `${files.length} items selected`}
                 </div>
                 <div style={{ fontSize: '0.85em', color: 'var(--text-muted)' }}>
@@ -343,45 +343,47 @@ function App() {
                 </div>
               </div>
 
-              {/* Add More Buttons */}
-              {(status === 'ready' || status === 'error') && (
-                <div style={{ display: 'flex', gap: '0.4rem', marginRight: '0.5rem', flexShrink: 0 }}>
-                  <button
-                    className="secondary-btn"
-                    onClick={() => fileInputRef.current.click()}
-                    style={{ padding: '0.4rem' }}
-                    title="Add more files"
-                  >
-                    <Plus size={18} />
-                  </button>
-                  <button
-                    className="secondary-btn"
-                    onClick={() => folderInputRef.current.click()}
-                    style={{ padding: '0.4rem' }}
-                    title="Add more folder"
-                  >
-                    <Folder size={18} />
-                  </button>
-                </div>
-              )}
+              <div className="file-actions">
+                {/* Add More Buttons */}
+                {(status === 'ready' || status === 'error') && (
+                  <>
+                    <button
+                      className="secondary-btn"
+                      onClick={() => fileInputRef.current.click()}
+                      style={{ padding: '0.4rem' }}
+                      title="Add more files"
+                    >
+                      <Plus size={18} />
+                    </button>
+                    <button
+                      className="secondary-btn"
+                      onClick={() => folderInputRef.current.click()}
+                      style={{ padding: '0.4rem' }}
+                      title="Add more folder"
+                    >
+                      <Folder size={18} />
+                    </button>
+                  </>
+                )}
 
-              <button
-                className="secondary-btn"
-                onClick={reset}
-                style={{ padding: '0.4rem', flexShrink: 0 }}
-                title="Reset"
-              >
-                <X size={18} />
-              </button>
+                <button
+                  className="secondary-btn"
+                  onClick={reset}
+                  style={{ padding: '0.4rem' }}
+                  title="Reset"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             {/* Extended File List (always visible to allow removal) */}
             {status !== 'completed' && (
               <div style={{ textAlign: 'left', fontSize: '0.8em', color: 'var(--text-muted)', marginBottom: '1rem', maxHeight: '150px', overflowY: 'auto', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
                 {files.map((f, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0' }} className="file-list-item">
+                  <div key={i} className="file-list-item">
                     <FileText size={12} />
-                    <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span>
                       {f.relativePath || f.name}
                     </span>
                     {(status === 'ready' || status === 'error') && (
