@@ -5,6 +5,7 @@ import (
 	"compressor-backend/utils"
 	"log"
 	"net/http"
+	"os"
 )
 
 func enableCORS(next http.Handler) http.Handler {
@@ -39,9 +40,14 @@ func main() {
 	mux.HandleFunc("/extract", handlers.ExtractHandler)
 	mux.HandleFunc("/download/", handlers.DownloadHandler)
 
-	log.Println("VaultZip Server running at http://localhost:8080")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 
-	err := http.ListenAndServe(":8080", enableCORS(mux))
+	log.Printf("VaultZip Server running at http://localhost:%s\n", port)
+
+	err := http.ListenAndServe(":"+port, enableCORS(mux))
 	if err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
