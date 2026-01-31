@@ -16,47 +16,60 @@ A modern, high-performance file compression and extraction utility. Built with *
 - **Pre-Processing Control**:
   - Remove individual files or folders from your selection before starting.
   - Real-time size calculation and item counting.
-- **Modern UI**: Polished, dark-mode interface with glassmorphism effects and responsive animations.
+- **Privacy & Storage Efficiency**:
+  - **Instant Cleanup**: Session data and processed files are deleted immediately on reset or page refresh.
+  - **Upload Cancellation**: Abort active uploads instantly to save bandwidth.
+  - **Auto-Maintenance**: Background worker clears stale files older than 30 minutes every 10 minutes.
+- **Modern & Responsive**: 
+  - Glassmorphic dark-mode UI.
+  - Fully responsive layout optimized for mobile and desktop.
 
 ## Project Structure
 
 - `backend/`: Go source code
-  - `main.go`: Entry point & Router
-  - `handlers/`: API Route handlers (Upload, Compress, Extract, Download)
-  - `services/`: Core logic (ZIP processing)
+  - `main.go`: Router & Background cleanup worker
+  - `handlers/`: API handlers for lifecycle management
+  - `services/`: Core logic for AES-256 ZIP processing
 - `frontend/`: React Vite application
-  - `src/App.jsx`: Main UI Logic & State
-  - `src/services/api.js`: Backend communication Layer
+  - `src/App.jsx`: Main UI with lifecycle cleanup hooks
+  - `src/services/api.js`: Communication with AbortController support
 
 ## Prerequisites
 
 - [Go](https://go.dev/) (1.21+)
 - [Node.js](https://nodejs.org/) (20+)
 
+## Deployment
+
+VaultZip is designed for modern cloud platforms:
+- **Backend**: Recommended for [Render.com](https://render.com/) (Go Runtime).
+- **Frontend**: Recommended for [Vercel](https://vercel.com/) (Vite Build).
+
+### Environment Variables
+- **Backend**: `PORT` (Dynamic binding for Render).
+- **Frontend**: `VITE_API_BASE_URL` (Points to your deployed backend URL).
+
 ## Getting Started
 
 ### 1. Start the Backend
-
 ```bash
 cd backend
 go run main.go
 ```
-The server will start at `http://localhost:8080`.
+Defaults to `http://localhost:8080`.
 
 ### 2. Start the Frontend
-
-Open a new terminal:
-
 ```bash
 cd frontend
-npm install # Required the first time or after cloning
+npm install
 npm run dev
 ```
-Open `http://localhost:5173` in your browser.
 
 ## API Endpoints
 
-- `POST /upload`: Stream files/folders to the session.
-- `POST /compress`: Bundle selected items into a ZIP.
-- `POST /extract`: Unpack a ZIP (supports password parameter).
-- `GET /download/*`: Securely retrieve processed files.
+- `POST /upload`: Stream files/folders to the server.
+- `POST /compress`: Bundle items into a ZIP.
+- `POST /extract`: Unpack a ZIP (supports password).
+- `GET /download/*`: Securely retrieve results.
+- `DELETE /session`: Instant wipe of all session-related files.
+- `DELETE /file`: Remove a specific file from a session.
