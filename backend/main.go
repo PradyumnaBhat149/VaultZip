@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 func enableCORS(next http.Handler) http.Handler {
@@ -32,6 +33,15 @@ func main() {
 	if err := handlers.InitStorage(); err != nil {
 		log.Fatal("Failed to initialize storage:", err)
 	}
+
+	// Start Background Cleanup Worker (Clean every 10 mins, files older than 30 mins)
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute)
+		for range ticker.C {
+			utils.CleanupDir(handlers.UploadDir, 30*time.Minute)
+			utils.CleanupDir(handlers.ProcessedDir, 30*time.Minute)
+		}
+	}()
 
 	mux := http.NewServeMux()
 

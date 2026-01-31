@@ -23,3 +23,29 @@ func GenerateTimestampedFilename(originalName string) string {
 	timestamp := time.Now().UnixNano()
 	return fmt.Sprintf("%s_%d%s", name, timestamp, ext)
 }
+
+// CleanupDir removes files and directories within a root that are older than maxAge
+func CleanupDir(root string, maxAge time.Duration) error {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	now := time.Now()
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+
+		if now.Sub(info.ModTime()) > maxAge {
+			path := filepath.Join(root, entry.Name())
+			fmt.Printf("Cleaning up: %s (Age: %v)\n", path, now.Sub(info.ModTime()))
+			os.RemoveAll(path)
+		}
+	}
+	return nil
+}
