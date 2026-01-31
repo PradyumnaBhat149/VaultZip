@@ -13,10 +13,6 @@ backend/vendor/
 # Frontend dependencies
 frontend/node_modules/
 
-# Local data (historical)
-backend/uploads/
-backend/processed/
-
 # IDE files
 .vscode/
 .idea/
