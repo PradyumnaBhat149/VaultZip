@@ -107,7 +107,6 @@ function App() {
     try {
       const resp = await uploadFiles(incomingFiles, sessionId, controller.signal);
 
-      let finalPaths = [];
       setBackendFilenames(prev => {
         const updated = [...prev];
         resp.filenames.forEach(newPath => {
@@ -115,20 +114,19 @@ function App() {
             updated.push(newPath);
           }
         });
-        finalPaths = updated;
+
+        // Auto-mode logic based on current unique paths
+        const isSingleZip = updated.length === 1 && updated[0].toLowerCase().endsWith('.zip');
+        if (isSingleZip) {
+          setMode('extract');
+        } else {
+          setMode('compress');
+        }
+
         return updated;
       });
 
       setStatus('ready');
-
-      // Auto-mode logic based on current unique paths
-      const isSingleZip = finalPaths.length === 1 && finalPaths[0].toLowerCase().endsWith('.zip');
-
-      if (isSingleZip) {
-        setMode('extract');
-      } else {
-        setMode('compress');
-      }
 
     } catch (err) {
       if (err.name === 'AbortError') {
@@ -336,8 +334,8 @@ function App() {
                   </span>
                 )}
               </div>
-              <div style={{ flex: 1, textAlign: 'left' }}>
-                <div style={{ fontWeight: 600 }}>
+              <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
+                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {files.length === 1 ? (files[0].relativePath || files[0].name) : `${files.length} items selected`}
                 </div>
                 <div style={{ fontSize: '0.85em', color: 'var(--text-muted)' }}>
@@ -347,7 +345,7 @@ function App() {
 
               {/* Add More Buttons */}
               {(status === 'ready' || status === 'error') && (
-                <div style={{ display: 'flex', gap: '0.4rem', marginRight: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.4rem', marginRight: '0.5rem', flexShrink: 0 }}>
                   <button
                     className="secondary-btn"
                     onClick={() => fileInputRef.current.click()}
@@ -370,7 +368,7 @@ function App() {
               <button
                 className="secondary-btn"
                 onClick={reset}
-                style={{ padding: '0.4rem' }}
+                style={{ padding: '0.4rem', flexShrink: 0 }}
                 title="Reset"
               >
                 <X size={18} />
