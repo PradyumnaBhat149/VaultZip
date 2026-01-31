@@ -12,10 +12,26 @@ import (
 	"strings"
 )
 
-const (
-	UploadDir    = "./uploads"
-	ProcessedDir = "./processed"
+var (
+	UploadDir    = ""
+	ProcessedDir = ""
 )
+
+func InitStorage() error {
+	baseTemp := filepath.Join(os.TempDir(), "VaultZip")
+	UploadDir = filepath.Join(baseTemp, "uploads")
+	ProcessedDir = filepath.Join(baseTemp, "processed")
+
+	if err := os.MkdirAll(UploadDir, 0755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(ProcessedDir, 0755); err != nil {
+		return err
+	}
+
+	fmt.Printf("Storage initialized at: %s\n", baseTemp)
+	return nil
+}
 
 type ProcessRequest struct {
 	SessionID string   `json:"sessionId"`

@@ -459,7 +459,7 @@ function App() {
                       style={{ textDecoration: 'none' }}
                     >
                       <button style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <Download size={20} /> Download Result
+                        <Download size={20} /> Download ZIP
                       </button>
                     </a>
                   )}

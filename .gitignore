@@ -1,0 +1,25 @@
+# Build artifacts
+bin/
+obj/
+dist/
+
+# System-specific
+.DS_Store
+Thumbs.db
+
+# Backend dependencies
+backend/vendor/
+
+# Frontend dependencies
+frontend/node_modules/
+
+# Local data (historical)
+backend/uploads/
+backend/processed/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.sublime-project
+*.sublime-workspace

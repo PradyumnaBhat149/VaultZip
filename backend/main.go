@@ -27,6 +27,11 @@ func main() {
 	utils.EnsureDir(handlers.UploadDir)
 	utils.EnsureDir(handlers.ProcessedDir)
 
+	// Initialize temporary storage
+	if err := handlers.InitStorage(); err != nil {
+		log.Fatal("Failed to initialize storage:", err)
+	}
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/upload", handlers.UploadHandler)
