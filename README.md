@@ -49,7 +49,7 @@ Open a new terminal:
 
 ```bash
 cd frontend
-npm install # if first time
+npm install # Required the first time or after cloning
 npm run dev
 ```
 Open `http://localhost:5173` in your browser.
