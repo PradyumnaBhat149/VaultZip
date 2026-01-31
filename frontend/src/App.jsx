@@ -63,23 +63,25 @@ function App() {
     setErrorMsg('');
     setResult(null);
 
+    // Optimistically update file list so UI isn't blank during upload
+    setFiles(prev => {
+      const updated = [...prev];
+      incomingFiles.forEach(newFile => {
+        const path = newFile.relativePath || newFile.name;
+        const idx = updated.findIndex(f => (f.relativePath || f.name) === path);
+        if (idx !== -1) {
+          updated[idx] = newFile;
+        } else {
+          updated.push(newFile);
+        }
+      });
+      return updated;
+    });
+
     try {
       const resp = await uploadFiles(incomingFiles, sessionId);
 
-      setFiles(prev => {
-        const updated = [...prev];
-        incomingFiles.forEach(newFile => {
-          const path = newFile.relativePath || newFile.name;
-          const idx = updated.findIndex(f => (f.relativePath || f.name) === path);
-          if (idx !== -1) {
-            updated[idx] = newFile;
-          } else {
-            updated.push(newFile);
-          }
-        });
-        return updated;
-      });
-
+      let finalPaths = [];
       setBackendFilenames(prev => {
         const updated = [...prev];
         resp.filenames.forEach(newPath => {
@@ -87,14 +89,14 @@ function App() {
             updated.push(newPath);
           }
         });
+        finalPaths = updated;
         return updated;
       });
 
       setStatus('ready');
 
-      // Auto-mode logic based on unique paths
-      const uniquePaths = Array.from(new Set([...backendFilenames, ...resp.filenames]));
-      const isSingleZip = uniquePaths.length === 1 && uniquePaths[0].toLowerCase().endsWith('.zip');
+      // Auto-mode logic based on current unique paths
+      const isSingleZip = finalPaths.length === 1 && finalPaths[0].toLowerCase().endsWith('.zip');
 
       if (isSingleZip) {
         setMode('extract');
@@ -254,7 +256,7 @@ function App() {
           onChange={(e) => handleFilesSelect(e.target.files)}
         />
 
-        {(status === 'uploading' || status === 'ready' || status === 'processing' || status === 'completed' || status === 'error') && files.length > 0 && (
+        {(status === 'uploading' || status === 'ready' || status === 'processing' || status === 'completed' || status === 'error') && (files.length > 0 || status === 'uploading') && (
           <div
             className="active-area"
             onDragOver={handleDragOver}
@@ -358,8 +360,8 @@ function App() {
             )}
 
             {status === 'uploading' && (
-              <div>
-                <p>Uploading...</p>
+              <div style={{ margin: '1rem 0' }}>
+                <p style={{ color: 'var(--primary)', fontWeight: 600, marginBottom: '0.5rem' }}>Uploading files...</p>
                 <div className="progress-bar"><div className="progress-fill"></div></div>
               </div>
             )}
