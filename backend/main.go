@@ -12,7 +12,7 @@ import (
 func enableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Session-ID")
 
 		if r.Method == "OPTIONS" {
@@ -49,6 +49,8 @@ func main() {
 	mux.HandleFunc("/compress", handlers.CompressHandler)
 	mux.HandleFunc("/extract", handlers.ExtractHandler)
 	mux.HandleFunc("/download/", handlers.DownloadHandler)
+	mux.HandleFunc("/session", handlers.DeleteSessionHandler)
+	mux.HandleFunc("/file", handlers.DeleteFileHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

@@ -78,6 +78,14 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	var nextRelPath string
 
 	for {
+		// Check for context cancellation (e.g., refresh or cancel)
+		select {
+		case <-r.Context().Done():
+			fmt.Println("Upload canceled by client")
+			return
+		default:
+		}
+
 		part, err := reader.NextPart()
 		if err == io.EOF {
 			break
@@ -90,8 +98,6 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		formName := part.FormName()
 
 		if formName == "paths" {
-			// Read the path string completely
-			// Limit to 32KB to prevent abuse
 			data, err := io.ReadAll(io.LimitReader(part, 32*1024))
 			if err != nil {
 				fmt.Printf("Error reading path: %v\n", err)
@@ -102,29 +108,21 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if formName == "files" {
-			// Determine relative path
-			// 1. Use nextRelPath if available
-			// 2. Fallback to part.FileName()
 			relPath := nextRelPath
 			if relPath == "" {
 				relPath = part.FileName()
 			}
-
-			// Reset for next file
 			nextRelPath = ""
 
 			if relPath == "" {
 				continue
 			}
 
-			// Prevent traversal
 			if strings.Contains(relPath, "..") {
 				continue
 			}
 
 			targetPath := filepath.Join(sessionDir, relPath)
-
-			// Ensure parent directory exists
 			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
 				fmt.Printf("Mkdir error: %v\n", err)
 				continue
@@ -136,16 +134,24 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			// Copy stream directly to file
+			// Copy with context awareness to stop early if canceled
+			// We can't easily interrupt io.Copy, but we can check context before/after
+			// and use a smaller buffer if we really wanted to be reactive.
+			// For now, checking context before each part is a huge improvement.
 			n, err := io.Copy(out, part)
 			out.Close()
 
-			fmt.Printf("Uploaded %s: %d bytes\n", relPath, n)
-
-			if err == nil {
-				uploadedFilenames = append(uploadedFilenames, relPath)
-			} else {
+			if err != nil {
+				// If error was due to context cancellation, remove partial file
+				if r.Context().Err() != nil {
+					os.Remove(targetPath)
+					fmt.Println("Cleaned up partial file due to cancellation")
+					return
+				}
 				fmt.Printf("Copy error: %v\n", err)
+			} else {
+				fmt.Printf("Uploaded %s: %d bytes\n", relPath, n)
+				uploadedFilenames = append(uploadedFilenames, relPath)
 			}
 		}
 	}
@@ -209,7 +215,8 @@ func CompressHandler(w http.ResponseWriter, r *http.Request) {
 	// Output file - name it generally if mixed, or by file if single
 	// If 1 ROOT file/folder, name it accordingly.
 	// Simplification: archive_timestamp.zip
-	outputFilename := utils.GenerateTimestampedFilename("archive.zip")
+	// Output file - prefix with sessionId for unified cleanup
+	outputFilename := fmt.Sprintf("%s_%s", req.SessionID, utils.GenerateTimestampedFilename("archive.zip"))
 	outputPath := filepath.Join(ProcessedDir, outputFilename)
 
 	err := services.CompressFiles(entries, outputPath)
@@ -255,13 +262,8 @@ func ExtractHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create a folder for extraction
-	extractDirName := filepath.Base(filename) + "_extracted"
-	// Ensure unique extraction per session? Or global?
-	// Global ProcessedDir is fine for now, we use unique timestamps for zips.
-	// But extracted folders might collide.
-	// Use timestamp.
-	extractDirName = utils.GenerateTimestampedFilename(extractDirName)
+	// Create a folder for extraction - prefix with sessionId for unified cleanup
+	extractDirName := fmt.Sprintf("%s_%s", req.SessionID, utils.GenerateTimestampedFilename(filepath.Base(filename)+"_extracted"))
 
 	extractPath := filepath.Join(ProcessedDir, extractDirName)
 
@@ -324,4 +326,63 @@ func DownloadHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(filename))
 	http.ServeFile(w, r, fileLoc)
+}
+
+// DeleteSessionHandler removes the entire session directory
+func DeleteSessionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete && r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	sessionID := r.URL.Query().Get("sessionId")
+	if sessionID == "" {
+		http.Error(w, "Session ID required", http.StatusBadRequest)
+		return
+	}
+
+	sessionDir := filepath.Join(UploadDir, sessionID)
+	fmt.Printf("Explicit cleanup for session: %s\n", sessionID)
+
+	// 1. Delete uploads
+	os.RemoveAll(sessionDir)
+
+	// 2. Delete processed files/folders starting with sessionId
+	processedEntries, err := os.ReadDir(ProcessedDir)
+	if err == nil {
+		prefix := sessionID + "_"
+		for _, entry := range processedEntries {
+			if strings.HasPrefix(entry.Name(), prefix) {
+				path := filepath.Join(ProcessedDir, entry.Name())
+				fmt.Printf("Cleanup processed item: %s\n", entry.Name())
+				os.RemoveAll(path)
+			}
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Session deleted"})
+}
+
+// DeleteFileHandler removes a specific file from the session
+func DeleteFileHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	sessionID := r.URL.Query().Get("sessionId")
+	filename := r.URL.Query().Get("filename")
+
+	if sessionID == "" || filename == "" {
+		http.Error(w, "Invalid parameters", http.StatusBadRequest)
+		return
+	}
+
+	filePath := filepath.Join(UploadDir, sessionID, filename)
+	fmt.Printf("Explicit removal of file: %s in session %s\n", filename, sessionID)
+	os.RemoveAll(filePath) // RemoveAll handles both files and directories
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "File deleted"})
 }

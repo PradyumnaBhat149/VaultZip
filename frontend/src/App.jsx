@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, FileArchive, Download, RefreshCw, X, CheckCircle, AlertCircle, FileText, Plus, Folder } from 'lucide-react';
-import { uploadFiles, compressFiles, extractFiles, getDownloadUrl } from './services/api';
+import { uploadFiles, compressFiles, extractFiles, getDownloadUrl, deleteSession, deleteFile } from './services/api';
 import { scanFiles } from './utils/fileScanner';
 
 // Simple UUID generator
@@ -24,9 +24,28 @@ function App() {
 
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
+  const uploadAbortControllerRef = useRef(null);
+  const sessionIdRef = useRef('');
 
   useEffect(() => {
-    setSessionId(generateUUID());
+    const newSessionId = generateUUID();
+    setSessionId(newSessionId);
+    sessionIdRef.current = newSessionId;
+
+    const cleanup = () => {
+      // Use the ref to get the absolute latest sessionId
+      const currentId = sessionIdRef.current;
+      if (currentId) {
+        const url = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/session?sessionId=${currentId}`;
+        navigator.sendBeacon(url);
+      }
+    };
+
+    window.addEventListener('beforeunload', cleanup);
+    return () => {
+      window.removeEventListener('beforeunload', cleanup);
+      deleteSession(sessionIdRef.current);
+    };
   }, []);
 
   const handleDragOver = (e) => {
@@ -78,8 +97,15 @@ function App() {
       return updated;
     });
 
+    // Cancel previous upload if any
+    if (uploadAbortControllerRef.current) {
+      uploadAbortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    uploadAbortControllerRef.current = controller;
+
     try {
-      const resp = await uploadFiles(incomingFiles, sessionId);
+      const resp = await uploadFiles(incomingFiles, sessionId, controller.signal);
 
       let finalPaths = [];
       setBackendFilenames(prev => {
@@ -105,9 +131,17 @@ function App() {
       }
 
     } catch (err) {
+      if (err.name === 'AbortError') {
+        console.log('Upload aborted');
+        return;
+      }
       console.error(err);
       setErrorMsg('Upload failed. Please try again.');
       setStatus('error');
+    } finally {
+      if (uploadAbortControllerRef.current === controller) {
+        uploadAbortControllerRef.current = null;
+      }
     }
   };
 
@@ -165,11 +199,19 @@ function App() {
     const updatedFiles = [...files];
     const updatedBackend = [...backendFilenames];
 
+    const fileToRemove = updatedFiles[index];
+    const pathToRemove = updatedBackend[index];
+
     updatedFiles.splice(index, 1);
     updatedBackend.splice(index, 1);
 
     setFiles(updatedFiles);
     setBackendFilenames(updatedBackend);
+
+    // If it was already uploaded to backend, delete it there too
+    if (pathToRemove) {
+      deleteFile(sessionId, pathToRemove);
+    }
 
     if (updatedFiles.length === 0) {
       reset();
@@ -185,6 +227,11 @@ function App() {
   };
 
   const reset = () => {
+    // Cleanup backend session before resetting local state
+    if (sessionId) {
+      deleteSession(sessionId);
+    }
+
     setFiles([]);
     setBackendFilenames([]);
     setStatus('idle');
@@ -195,11 +242,17 @@ function App() {
     setPassword('');
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (folderInputRef.current) folderInputRef.current.value = '';
-    // Optional: Reset session ID to simulate fresh start? 
-    // Or keep same session. Keeping same session allows "Add more" to work properly.
-    // If we want fresh start, maybe clear uploads on backend? 
-    // For MVP, we just start fresh list. 
-    setSessionId(generateUUID()); // Fresh session for fresh start logic
+
+    // Fresh session for fresh start logic
+    const nextId = generateUUID();
+    setSessionId(nextId);
+    sessionIdRef.current = nextId;
+
+    // Cancel any active upload
+    if (uploadAbortControllerRef.current) {
+      uploadAbortControllerRef.current.abort();
+      uploadAbortControllerRef.current = null;
+    }
   };
 
   const getTotalSize = () => {
